@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"encoding/csv"
 	"flag"
 	"fmt"
@@ -18,14 +17,6 @@ func check(e error) {
 	}
 }
 
-func getAnswer(c chan string) {
-	ansReader := bufio.NewReader(os.Stdin)
-	answer, ansErr := ansReader.ReadString('\n')
-	check(ansErr)
-
-	c <- answer
-}
-
 func main() {
 	// Commandline flags
 	csvPtr := flag.String("file", "problems.csv", "a csv file in the format of 'question,answer' (default \"problems.csv\")")
@@ -37,41 +28,43 @@ func main() {
 	check(csvErr)
 	r := csv.NewReader(csvData)
 
+	// Get confirmation from user before starting timer
+	fmt.Printf("Press enter to start the timer for %d seconds", *timePtr)
+	fmt.Scanf("%s\n")
+
 	// Setup the timer
 	timer := time.NewTimer(time.Duration(*timePtr) * time.Second)
 
-	var incorrect int
 	var correct int
 	var total int
 
-	// Fix for part 2
-	// Get confirmation from user before starting timer
-	fmt.Println("Press enter to start the timer for ", *timePtr, "seconds")
-
+problemloop:
 	for {
 		record, err := r.Read()
 		if err == io.EOF {
-			break
+			break problemloop
 		}
 		check(err)
 		fmt.Print(record[0], " = ")
 		total += 1
 
 		ansChan := make(chan string)
-		getAnswer(ansChan)
+		go func() {
+			var answer string
+			fmt.Scanf("%s\n", &answer)
+			ansChan <- answer
+		}()
+
 		select {
 		case <-timer.C:
-			fmt.Println("Correct: ", correct, "Total", total)
-			return
-		case <-ansChan:
-			// strip the answer
-			if strings.ToLower(strings.TrimSpace(ansChan)) == strings.ToLower((record[1])) {
-				correct += 1
-			} else {
-				incorrect += 1
+			fmt.Println()
+			break problemloop
+		case answer := <-ansChan:
+			// strip the answer of extra spaces
+			if strings.ToLower(strings.TrimSpace(answer)) == strings.ToLower((record[1])) {
+				correct++
 			}
 		}
-
 	}
 
 	fmt.Println("Correct: ", correct, "Total", total)
