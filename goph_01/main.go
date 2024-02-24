@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"time"
 )
 
 func check(e error) {
@@ -17,7 +18,13 @@ func check(e error) {
 	}
 }
 
-func timeLimit(t int, c chan bool) {}
+func getAnswer(c chan string) {
+	ansReader := bufio.NewReader(os.Stdin)
+	answer, ansErr := ansReader.ReadString('\n')
+	check(ansErr)
+
+	c <- answer
+}
 
 func main() {
 	// Commandline flags
@@ -31,8 +38,7 @@ func main() {
 	r := csv.NewReader(csvData)
 
 	// Setup the timer
-	c := make(chan bool)
-	go timeLimit(*timePtr, c)
+	timer := time.NewTimer(time.Duration(*timePtr) * time.Second)
 
 	var incorrect int
 	var correct int
@@ -48,23 +54,25 @@ func main() {
 			break
 		}
 		check(err)
-		fmt.Print(record[0], ":")
+		fmt.Print(record[0], " = ")
 		total += 1
 
-		ansReader := bufio.NewReader(os.Stdin)
-
-		answer, ansErr := ansReader.ReadString('\n')
-
-		check(ansErr)
-
-		// strip the answer
-		if strings.ToLower(strings.TrimSpace(answer)) == strings.ToLower((record[1])) {
-			correct += 1
-		} else {
-			incorrect += 1
+		ansChan := make(chan string)
+		getAnswer(ansChan)
+		select {
+		case <-timer.C:
+			fmt.Println("Correct: ", correct, "Total", total)
+			return
+		case <-ansChan:
+			// strip the answer
+			if strings.ToLower(strings.TrimSpace(ansChan)) == strings.ToLower((record[1])) {
+				correct += 1
+			} else {
+				incorrect += 1
+			}
 		}
+
 	}
 
 	fmt.Println("Correct: ", correct, "Total", total)
-
 }
