@@ -9,7 +9,6 @@ import (
 	"log"
 	"os"
 	"strings"
-	"time"
 )
 
 func check(e error) {
@@ -18,6 +17,8 @@ func check(e error) {
 	}
 }
 
+func timeLimit(t int, c chan bool) {}
+
 func main() {
 	// Commandline flags
 	csvPtr := flag.String("file", "problems.csv", "a csv file in the format of 'question,answer' (default \"problems.csv\")")
@@ -25,11 +26,13 @@ func main() {
 	flag.Parse()
 
 	// Read CSV
-	csvData, csvErr := os.ReadFile(*csvPtr)
-
+	csvData, csvErr := os.Open(*csvPtr)
 	check(csvErr)
+	r := csv.NewReader(csvData)
 
-	r := csv.NewReader(strings.NewReader(string(csvData)))
+	// Setup the timer
+	c := make(chan bool)
+	go timeLimit(*timePtr, c)
 
 	var incorrect int
 	var correct int
@@ -39,7 +42,6 @@ func main() {
 	// Get confirmation from user before starting timer
 	fmt.Println("Press enter to start the timer for ", *timePtr, "seconds")
 
-	start := time.Now()
 	for {
 		record, err := r.Read()
 		if err == io.EOF {
@@ -60,11 +62,6 @@ func main() {
 			correct += 1
 		} else {
 			incorrect += 1
-		}
-		t := time.Now()
-		if t.Sub(start) >= time.Duration(*timePtr) {
-			fmt.Println("Time over...")
-			break
 		}
 	}
 
